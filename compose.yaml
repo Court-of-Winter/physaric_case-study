@@ -1,0 +1,32 @@
+services:
+  analysis:
+    build: .
+    image: enron-metadata-analysis:local
+    user: "${UID:-1000}:${GID:-1000}"
+    volumes:
+      - type: bind
+        source: ${EMAIL_DATA_DIR:-./enron_mail_20150507/maildir}
+        target: /data
+        read_only: true
+      - type: bind
+        source: ${HMAC_KEY_FILE:-../secrets/hmac.key}
+        target: /run/secrets/hmac.key
+        read_only: true
+      - type: bind
+        source: ${ALIAS_MAP_FILE:-./config/empty_alias_map.json}
+        target: /run/secrets/alias-map.json
+        read_only: true
+      - type: bind
+        source: ./outputs
+        target: /outputs
+    command:
+      - --data-dir
+      - /data
+      - --key-file
+      - /run/secrets/hmac.key
+      - --alias-map
+      - /run/secrets/alias-map.json
+      - --output-dir
+      - /outputs
+      - --min-edge-count
+      - ${MIN_EDGE_COUNT:-5}

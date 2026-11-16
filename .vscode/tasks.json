@@ -1,0 +1,29 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Build Docker image (docker CLI)",
+			"type": "shell",
+			"command": "docker",
+			"args": [
+				"build",
+				"-t",
+				"enron-metadata-analysis:local",
+				"."
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Verify Docker access",
+			"type": "shell",
+			"command": "docker",
+			"args": [
+				"info"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		}
+	]
+}

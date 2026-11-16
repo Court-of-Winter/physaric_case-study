@@ -1,1 +1,7 @@
 enron_mail_20150507
+__pycache__/
+.pytest_cache/
+.venv/
+outputs/
+secrets/
+*.py[cod]
