@@ -27,6 +27,6 @@ COPY tests ./tests
 
 USER app
 
-ENTRYPOINT ["python", "-m", "pytest", "-q"]
+ENTRYPOINT ["python", "-m", "pytest", "-q", "-p", "no:cacheprovider"]
 
 FROM runtime AS production

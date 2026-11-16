@@ -6,4 +6,5 @@ outputs/
 secrets/
 AI_USE.txt
 PROJECT_GUIDE.txt
+MANUAL_CODE_REVIEW_PLAN.txt
 *.py[cod]
