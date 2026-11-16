@@ -126,12 +126,20 @@ def _monthly_edges(daily_edges: Mapping[tuple[str, str, str], int]) -> EdgeCount
     return monthly_edges
 
 
+def _count_suppressed_edge_groups(
+    edges: Mapping[tuple[str, str, str], int],
+    min_edge_count: int,
+) -> int:
+    return sum(weight < min_edge_count for weight in edges.values())
+
+
 def run_pipeline(
     data_dir: Path,
     key_file: Path,
     output_dir: Path,
     min_edge_count: int = 5,
     alias_map_file: Path | None = None,
+    export_edges: bool = False,
 ) -> QualityCounts:
     """Create suppressed edge tables and aggregate 2001 analysis reports."""
     if min_edge_count < 1:
@@ -167,12 +175,15 @@ def run_pipeline(
     organization_edges = _monthly_edges(organization_daily_edges)
     person_output = output_dir / "person_edges_2001.csv"
     organization_output = output_dir / "organization_edges_2001.csv"
-    quality.person_edge_groups_suppressed = _write_edge_table(
-        person_output, person_edges, min_edge_count
+    quality.person_edge_groups_suppressed = _count_suppressed_edge_groups(
+        person_edges, min_edge_count
     )
-    quality.organization_edge_groups_suppressed = _write_edge_table(
-        organization_output, organization_edges, min_edge_count
+    quality.organization_edge_groups_suppressed = _count_suppressed_edge_groups(
+        organization_edges, min_edge_count
     )
+    if export_edges:
+        _write_edge_table(person_output, person_edges, min_edge_count)
+        _write_edge_table(organization_output, organization_edges, min_edge_count)
     metrics = analyze_monthly_networks(
         {
             "person": person_daily_edges,

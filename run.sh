@@ -7,6 +7,7 @@ EMAIL_DATA_DIR="${EMAIL_DATA_DIR:-enron_mail_20150507/maildir}"
 HMAC_KEY_FILE="${HMAC_KEY_FILE:-../secrets/hmac.key}"
 ALIAS_MAP_FILE="${ALIAS_MAP_FILE:-config/empty_alias_map.json}"
 MIN_EDGE_COUNT="${MIN_EDGE_COUNT:-5}"
+EXPORT_EDGES="${EXPORT_EDGES:-0}"
 OUTPUT_DIR="$ROOT_DIR/outputs"
 
 resolve_input_path() {
@@ -37,6 +38,10 @@ if [[ ! "$MIN_EDGE_COUNT" =~ ^[1-9][0-9]*$ ]]; then
     printf '%s\n' "MIN_EDGE_COUNT must be a positive integer." >&2
     exit 2
 fi
+if [[ "$EXPORT_EDGES" != 0 && "$EXPORT_EDGES" != 1 ]]; then
+    printf '%s\n' "EXPORT_EDGES must be 0 (default) or 1." >&2
+    exit 2
+fi
 
 DATA_REAL="$(cd -- "$EMAIL_DATA_DIR" && pwd -P)"
 case "$OUTPUT_DIR/" in
@@ -46,10 +51,22 @@ case "$OUTPUT_DIR/" in
         ;;
 esac
 mkdir -p "$OUTPUT_DIR"
+if [[ "$EXPORT_EDGES" == 0 ]] && {
+    [[ -f "$OUTPUT_DIR/person_edges_2001.csv" ]] ||
+    [[ -f "$OUTPUT_DIR/organization_edges_2001.csv" ]]
+}; then
+    printf '%s\n' \
+        "WARNING: prior edge exports remain in outputs/; remove them manually if no longer needed." \
+        >&2
+fi
 
 RUN_UID="${SUDO_UID:-$(id -u)}"
 RUN_GID="${SUDO_GID:-$(id -g)}"
 docker build -t enron-metadata-analysis:local "$ROOT_DIR"
+EDGE_EXPORT_ARGS=()
+if [[ "$EXPORT_EDGES" == 1 ]]; then
+    EDGE_EXPORT_ARGS+=(--export-edges)
+fi
 docker run --rm \
     --user "$RUN_UID:$RUN_GID" \
     --mount "type=bind,source=$EMAIL_DATA_DIR,target=/data,readonly" \
@@ -61,4 +78,5 @@ docker run --rm \
     --key-file /run/secrets/hmac.key \
     --alias-map /run/secrets/alias-map.json \
     --output-dir /outputs \
-    --min-edge-count "$MIN_EDGE_COUNT"
+    --min-edge-count "$MIN_EDGE_COUNT" \
+    "${EDGE_EXPORT_ARGS[@]}"

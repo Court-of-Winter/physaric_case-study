@@ -3,7 +3,7 @@
 This repository is being built for metadata-only analysis of the public Enron
 email corpus. The current increments provide bounded, allowlisted header ingestion,
 conservative exact-address identity resolution, HMAC pseudonymization,
-aggregate quality reporting, monthly 2001 edge tables, network metrics,
+aggregate quality reporting, monthly 2001 network metrics,
 resampling-sensitivity bounds, a computed descriptive finding, and an
 aggregate structural/temporal privacy assessment.
 
@@ -32,11 +32,14 @@ namespaces. The alias map is a JSON object mapping alias email addresses to
 canonical email addresses, for example `{"old@example.com":"new@example.com"}`.
 It is loaded into memory and never emitted as a report. A quality report serializes
 only aggregate counters. The CLI writes separate person and domain-proxy edge
-tables, counts each message-recipient pair once, excludes self-loops, and
-suppresses monthly edge groups below `--min-edge-count` (default `5`).
+tables only when explicitly requested with `--export-edges`; they contain
+stable node pseudonyms and are sensitive. Exported edges count each
+message-recipient pair once, exclude self-loops, and apply the configured
+monthly threshold (default `5`).
 Pseudonymization is not anonymization: because the source corpus is public,
 stable graph structures and timing can still enable re-identification. Treat
-edge outputs as sensitive; the threshold is not a guarantee of anonymity.
+edge outputs as sensitive; measured signature matching shows that increasing
+the threshold does not reliably prevent re-identification.
 
 The corpus is excluded from Docker build context and must be mounted read-only
 at runtime. The HMAC key and any non-empty alias map must be stored outside the
@@ -62,17 +65,22 @@ Paths may be absolute or relative to the repository root. Defaults are
 external key, and `config/empty_alias_map.json` for the empty alias map.
 Override them with `EMAIL_DATA_DIR`, `HMAC_KEY_FILE`, and `ALIAS_MAP_FILE`.
 `MIN_EDGE_COUNT` sets the edge-suppression threshold and defaults to `5`.
+By default, the run writes only aggregate reports and does not create edge
+tables. Set `EXPORT_EDGES=1` to write the sensitive node-level CSVs; the CLI
+prints a warning when this option is enabled. If edge tables were exported in
+an earlier run, a later default run does not delete them and will warn that
+they remain in `outputs/`; remove those files manually when no longer needed.
 If Docker requires elevated access, run the script manually with the required
 environment preserved by `sudo`, for example:
 
 ```sh
-sudo --preserve-env=EMAIL_DATA_DIR,HMAC_KEY_FILE,ALIAS_MAP_FILE,MIN_EDGE_COUNT bash ./run.sh
+sudo --preserve-env=EMAIL_DATA_DIR,HMAC_KEY_FILE,ALIAS_MAP_FILE,MIN_EDGE_COUNT,EXPORT_EDGES bash ./run.sh
 ```
 
 The script builds or refreshes the image, mounts the corpus, key, and alias
 map read-only, and writes outputs under `outputs/`.
 
-The current CLI produces a quality report and monthly edge tables for 2001.
+The current CLI produces a quality report and monthly graph results for 2001.
 It also writes `network_metrics_2001.csv` with monthly directed-network
 summaries: interactions, nodes, edges, directed density, mean out-degree,
 mean weighted out-strength, reciprocity, and largest weak-component share.

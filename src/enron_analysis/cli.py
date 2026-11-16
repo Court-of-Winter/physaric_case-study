@@ -1,4 +1,5 @@
 import argparse
+import sys
 from pathlib import Path
 
 from .pipeline import run_pipeline
@@ -35,7 +36,15 @@ def build_parser() -> argparse.ArgumentParser:
         "--min-edge-count",
         type=int,
         default=5,
-        help="Suppress released edges with fewer messages than this value (default: 5).",
+        help="Privacy-assessment edge suppression threshold (default: 5).",
+    )
+    parser.add_argument(
+        "--export-edges",
+        action="store_true",
+        help=(
+            "Write pseudonymized node-level edge CSVs (sensitive; structural "
+            "re-identification risk is measured in the privacy report)."
+        ),
     )
     return parser
 
@@ -45,6 +54,12 @@ def main() -> int:
     args = parser.parse_args()
     if args.min_edge_count < 1:
         parser.error("--min-edge-count must be at least 1")
+    if args.export_edges:
+        print(
+            "WARNING: exporting node-level edges exposes re-identifiable graph "
+            "structure; see privacy_assessment.json.",
+            file=sys.stderr,
+        )
     try:
         run_pipeline(
             data_dir=args.data_dir,
@@ -52,6 +67,7 @@ def main() -> int:
             output_dir=args.output_dir,
             min_edge_count=args.min_edge_count,
             alias_map_file=args.alias_map,
+            export_edges=args.export_edges,
         )
     except ValueError as error:
         parser.error(str(error))

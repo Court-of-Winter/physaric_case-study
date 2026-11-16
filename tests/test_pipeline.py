@@ -76,6 +76,7 @@ def test_pipeline_writes_suppressed_pseudonymous_monthly_edges(tmp_path):
         output_dir=output,
         min_edge_count=2,
         alias_map_file=aliases_file,
+        export_edges=True,
     )
 
     with (output / "person_edges_2001.csv").open(
