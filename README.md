@@ -90,6 +90,14 @@ sudo --preserve-env=EMAIL_DATA_DIR,HMAC_KEY_FILE,ALIAS_MAP_FILE,MIN_EDGE_COUNT,E
 The script builds or refreshes the image, mounts the corpus, key, and alias
 map read-only, and writes outputs under `outputs/`.
 
+The Dockerfile pins Python to 3.12.16, pip to 25.0.1, and all runtime and test
+Python packages to exact versions so dependency resolution does not drift.
+Package versions are not locked to OS-specific wheel hashes or one CPU
+architecture. The `python:3.12.16-slim` tag is not pinned by image digest, so
+Docker base-image updates can still change the underlying OS image; this favors
+portability over bit-for-bit image reproduction. For an exact rerun, use the
+same repository revision, corpus version, key, and configured parameters.
+
 The current CLI produces a quality report and monthly graph results for 2001.
 It also writes `network_metrics_2001.csv` with monthly directed-network
 summaries: interactions, nodes, edges, directed density, mean out-degree,
