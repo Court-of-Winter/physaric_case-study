@@ -87,7 +87,10 @@ def test_pipeline_writes_suppressed_pseudonymous_monthly_edges(tmp_path):
     ) as edge_file:
         organization_edges = list(csv.DictReader(edge_file))
     quality_text = (output / "quality_report.json").read_text(encoding="utf-8")
+    privacy_text = (output / "privacy_assessment.json").read_text(encoding="utf-8")
+    findings_text = (output / "findings.json").read_text(encoding="utf-8")
     quality_report = json.loads(quality_text)
+    privacy_report = json.loads(privacy_text)
     pseudonymizer = Pseudonymizer(
         b"k" * 32,
         {"alias@enron.com": "Alice@enron.com"},
@@ -127,8 +130,12 @@ def test_pipeline_writes_suppressed_pseudonymous_monthly_edges(tmp_path):
         "@example.test",
     ):
         assert private_value not in quality_text
+        assert private_value not in privacy_text
+        assert private_value not in findings_text
         assert private_value not in repr(person_edges)
         assert private_value not in repr(organization_edges)
+    assert "attack_results" in privacy_report["networks"]["person"]
+    assert "peak_month" in json.loads(findings_text)
 
 
 def test_pipeline_rejects_output_inside_input(tmp_path):

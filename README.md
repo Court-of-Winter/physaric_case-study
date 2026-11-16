@@ -3,8 +3,9 @@
 This repository is being built for metadata-only analysis of the public Enron
 email corpus. The current increments provide bounded, allowlisted header ingestion,
 conservative exact-address identity resolution, HMAC pseudonymization,
-aggregate quality reporting, and monthly 2001 edge tables. Network metrics
-and the privacy assessment are not implemented yet.
+aggregate quality reporting, monthly 2001 edge tables, network metrics,
+resampling-sensitivity bounds, a computed descriptive finding, and an
+aggregate structural/temporal privacy assessment.
 
 ## Project layout
 
@@ -72,7 +73,29 @@ The script builds or refreshes the image, mounts the corpus, key, and alias
 map read-only, and writes outputs under `outputs/`.
 
 The current CLI produces a quality report and monthly edge tables for 2001.
-Network metrics, privacy attack evaluation, utility comparison, and
-evidence-based findings are subsequent implementation stages.
+It also writes `network_metrics_2001.csv` with monthly directed-network
+summaries: interactions, nodes, edges, directed density, mean out-degree,
+mean weighted out-strength, reciprocity, and largest weak-component share.
+The reported 2.5th and 97.5th bootstrap percentiles use a deterministic
+day-block resampling stratified by weekday. These are resampling-sensitivity
+bounds, not population confidence intervals: they assume days are exchangeable
+within each weekday and do not capture messages omitted, redacted, or missing
+from the source corpus, nor dependence across days.
+`findings.json` derives one descriptive finding from the observed monthly
+person-network interaction counts and includes adjacent-month resampling-range
+comparisons; it makes no causal claim.
+`privacy_assessment.json` tests unique annual structural and 12-month temporal
+in/out degree/strength signature matching, assuming the attacker has the
+original corpus and knows the release threshold, but not the HMAC key or alias
+map. Candidate identities and matches are transient; only aggregate match
+counts/rates are serialized.
+The report also compares unfiltered monthly graph utility with the released
+thresholded graph (interactions, annual dyads, nodes, reciprocity, density,
+and largest weak component); this isolates edge-suppression utility and does
+not measure the separate loss of within-month timing. It also evaluates
+threshold sensitivity at `k=5, 10, 25, 50, 100` and the configured threshold.
+Exact signature matching is a limited attack model, not a general
+re-identification guarantee; results do not prove anonymity or account for
+external auxiliary data.
 
 Use the development requirements and run `pytest` to execute tests.

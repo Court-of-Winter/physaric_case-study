@@ -83,3 +83,6 @@ def test_cli_runs_pipeline_and_writes_quality_report(tmp_path, monkeypatch):
     assert main() == 0
     assert (output_dir / "quality_report.json").is_file()
     assert (output_dir / "person_edges_2001.csv").is_file()
+    assert (output_dir / "network_metrics_2001.csv").is_file()
+    assert (output_dir / "privacy_assessment.json").is_file()
+    assert (output_dir / "findings.json").is_file()

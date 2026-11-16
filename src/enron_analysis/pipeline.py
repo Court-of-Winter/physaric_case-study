@@ -3,11 +3,20 @@ from collections import Counter
 from collections.abc import Mapping
 from pathlib import Path
 
+from .findings import generate_findings
+from .graph_analysis import analyze_monthly_networks
+from .identity import PersonIdentityResolver, organization_domain
 from .ingest import HeaderMessage, QualityCounts, iter_messages
+from .privacy import assess_reidentification
 from .pseudonymize import Pseudonymizer, load_alias_map, load_hmac_key
-from .report import write_quality_report
+from .report import (
+    write_findings_report,
+    write_privacy_report,
+    write_quality_report,
+)
 
 
+DailyEdgeCounts = Counter[tuple[str, str, str]]
 EdgeCounts = Counter[tuple[str, str, str]]
 
 
@@ -32,8 +41,11 @@ def _write_edge_table(
 def _accumulate_message(
     message: HeaderMessage,
     pseudonymizer: Pseudonymizer,
-    person_edges: EdgeCounts,
-    organization_edges: EdgeCounts,
+    identity_resolver: PersonIdentityResolver,
+    person_edges: DailyEdgeCounts,
+    organization_edges: DailyEdgeCounts,
+    raw_person_edges: EdgeCounts,
+    raw_organization_edges: EdgeCounts,
     quality: QualityCounts,
 ) -> None:
     if message.sent_at is None:
@@ -51,36 +63,67 @@ def _accumulate_message(
     source_organization = (
         pseudonymizer.organization(message.sender) if message.sender else None
     )
+    raw_source_person = (
+        identity_resolver.resolve(message.sender) if message.sender else None
+    )
+    raw_source_organization = (
+        organization_domain(message.sender) if message.sender else None
+    )
     if source_person is None:
         quality.unresolved_senders += 1
         return
 
-    month = message.sent_at.strftime("%Y-%m")
+    day = message.sent_at.strftime("%Y-%m-%d")
+    month = day[:7]
     person_targets: set[str] = set()
     organization_targets: set[str] = set()
+    raw_person_targets: set[str] = set()
+    raw_organization_targets: set[str] = set()
     for address in message.recipients:
         person_target = pseudonymizer.person(address)
         if person_target is None:
             quality.unresolved_recipients += 1
         else:
             person_targets.add(person_target)
+        raw_person_target = identity_resolver.resolve(address)
+        if raw_person_target is not None:
+            raw_person_targets.add(raw_person_target)
         organization_target = pseudonymizer.organization(address)
         if organization_target is not None:
             organization_targets.add(organization_target)
+        raw_organization_target = organization_domain(address)
+        if raw_organization_target is not None:
+            raw_organization_targets.add(raw_organization_target)
 
-    if source_organization is None:
-        return
-    for target in organization_targets:
-        if source_organization == target:
-            quality.organization_self_loops_skipped += 1
-        else:
-            organization_edges[(month, source_organization, target)] += 1
+    if source_organization is not None:
+        for target in organization_targets:
+            if source_organization == target:
+                quality.organization_self_loops_skipped += 1
+            else:
+                organization_edges[(day, source_organization, target)] += 1
+    if raw_source_organization is not None:
+        for target in raw_organization_targets:
+            if raw_source_organization != target:
+                raw_organization_edges[
+                    (month, raw_source_organization, target)
+                ] += 1
 
     for target in person_targets:
         if source_person == target:
             quality.person_self_loops_skipped += 1
         else:
-            person_edges[(month, source_person, target)] += 1
+            person_edges[(day, source_person, target)] += 1
+    if raw_source_person is not None:
+        for target in raw_person_targets:
+            if raw_source_person != target:
+                raw_person_edges[(month, raw_source_person, target)] += 1
+
+
+def _monthly_edges(daily_edges: Mapping[tuple[str, str, str], int]) -> EdgeCounts:
+    monthly_edges: EdgeCounts = Counter()
+    for (day, source, target), weight in daily_edges.items():
+        monthly_edges[(day[:7], source, target)] += weight
+    return monthly_edges
 
 
 def run_pipeline(
@@ -90,7 +133,7 @@ def run_pipeline(
     min_edge_count: int = 5,
     alias_map_file: Path | None = None,
 ) -> QualityCounts:
-    """Create suppressed monthly 2001 edge tables and an aggregate quality report."""
+    """Create suppressed edge tables and aggregate 2001 analysis reports."""
     if min_edge_count < 1:
         raise ValueError("minimum edge count must be at least 1")
     source = data_dir.resolve()
@@ -101,19 +144,27 @@ def run_pipeline(
     key = load_hmac_key(key_file)
     aliases = load_alias_map(alias_map_file) if alias_map_file else None
     pseudonymizer = Pseudonymizer(key, aliases)
+    attacker_identity_resolver = PersonIdentityResolver()
     quality = QualityCounts()
-    person_edges: EdgeCounts = Counter()
-    organization_edges: EdgeCounts = Counter()
+    person_daily_edges: DailyEdgeCounts = Counter()
+    organization_daily_edges: DailyEdgeCounts = Counter()
+    raw_person_edges: EdgeCounts = Counter()
+    raw_organization_edges: EdgeCounts = Counter()
 
     for message in iter_messages(data_dir, quality):
         _accumulate_message(
             message,
             pseudonymizer,
-            person_edges,
-            organization_edges,
+            attacker_identity_resolver,
+            person_daily_edges,
+            organization_daily_edges,
+            raw_person_edges,
+            raw_organization_edges,
             quality,
         )
 
+    person_edges = _monthly_edges(person_daily_edges)
+    organization_edges = _monthly_edges(organization_daily_edges)
     person_output = output_dir / "person_edges_2001.csv"
     organization_output = output_dir / "organization_edges_2001.csv"
     quality.person_edge_groups_suppressed = _write_edge_table(
@@ -122,5 +173,29 @@ def run_pipeline(
     quality.organization_edge_groups_suppressed = _write_edge_table(
         organization_output, organization_edges, min_edge_count
     )
+    metrics = analyze_monthly_networks(
+        {
+            "person": person_daily_edges,
+            "organization_proxy": organization_daily_edges,
+        }
+    )
+    output_dir.mkdir(parents=True, exist_ok=True)
+    metrics.to_csv(output_dir / "network_metrics_2001.csv", index=False)
+    write_findings_report(
+        output_dir / "findings.json",
+        generate_findings(metrics),
+    )
+    privacy_report = assess_reidentification(
+        {
+            "person": raw_person_edges,
+            "organization_proxy": raw_organization_edges,
+        },
+        {
+            "person": person_edges,
+            "organization_proxy": organization_edges,
+        },
+        min_edge_count,
+    )
+    write_privacy_report(output_dir / "privacy_assessment.json", privacy_report)
     write_quality_report(output_dir / "quality_report.json", quality)
     return quality
