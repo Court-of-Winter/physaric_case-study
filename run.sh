@@ -3,6 +3,27 @@ set -euo pipefail
 
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 
+WITH_TESTS=0
+while (($#)); do
+    case "$1" in
+        --with-tests)
+            WITH_TESTS=1
+            ;;
+        -h|--help)
+            printf '%s\n' \
+                "Usage: bash ./run.sh [--with-tests]" \
+                "  --with-tests  Build and run the test suite before analysis"
+            exit 0
+            ;;
+        *)
+            printf 'Unknown option: %s\n' "$1" >&2
+            printf '%s\n' "Usage: bash ./run.sh [--with-tests]" >&2
+            exit 2
+            ;;
+    esac
+    shift
+done
+
 EMAIL_DATA_DIR="${EMAIL_DATA_DIR:-enron_mail_20150507/maildir}"
 HMAC_KEY_FILE="${HMAC_KEY_FILE:-../secrets/hmac.key}"
 ALIAS_MAP_FILE="${ALIAS_MAP_FILE:-config/empty_alias_map.json}"
@@ -62,6 +83,10 @@ fi
 
 RUN_UID="${SUDO_UID:-$(id -u)}"
 RUN_GID="${SUDO_GID:-$(id -g)}"
+if [[ "$WITH_TESTS" == 1 ]]; then
+    docker build --target test -t enron-metadata-analysis:test "$ROOT_DIR"
+    docker run --rm enron-metadata-analysis:test
+fi
 docker build -t enron-metadata-analysis:local "$ROOT_DIR"
 EDGE_EXPORT_ARGS=()
 if [[ "$EXPORT_EDGES" == 1 ]]; then

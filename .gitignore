@@ -4,4 +4,6 @@ __pycache__/
 .venv/
 outputs/
 secrets/
+AI_USE.txt
+PROJECT_GUIDE.txt
 *.py[cod]

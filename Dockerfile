@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.12-slim AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -15,3 +15,17 @@ COPY src ./src
 USER app
 
 ENTRYPOINT ["python", "-m", "enron_analysis"]
+
+FROM runtime AS test
+
+USER root
+COPY requirements-dev.txt .
+RUN pip install --no-cache-dir -r requirements-dev.txt
+COPY pytest.ini .
+COPY tests ./tests
+
+USER app
+
+ENTRYPOINT ["python", "-m", "pytest", "-q"]
+
+FROM runtime AS production

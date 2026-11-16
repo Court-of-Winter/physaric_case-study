@@ -54,11 +54,21 @@ display names, alias maps, or the key in outputs, logs, or the repository.
 docker build -t enron-metadata-analysis:local .
 ```
 
-## Run
+## Run analysis only
 
 ```sh
 bash ./run.sh
 ```
+
+## Run tests, then analysis
+
+```sh
+bash ./run.sh --with-tests
+```
+
+The test command builds a dedicated Docker test target and runs pytest before
+the analysis image is built or the corpus is processed. If tests fail, analysis
+does not run. Both commands perform the same end-to-end analysis on success.
 
 Paths may be absolute or relative to the repository root. Defaults are
 `enron_mail_20150507/maildir` for the corpus, `../secrets/hmac.key` for the
@@ -106,4 +116,8 @@ Exact signature matching is a limited attack model, not a general
 re-identification guarantee; results do not prove anonymity or account for
 external auxiliary data.
 
-Use the development requirements and run `pytest` to execute tests.
+To run the included tests and then produce the analysis in one command:
+
+```sh
+bash ./run.sh --with-tests
+```
