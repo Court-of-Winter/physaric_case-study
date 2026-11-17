@@ -12,6 +12,7 @@ RUN python -m pip install --no-cache-dir pip==25.0.1 \
     && useradd --create-home --uid 10001 app
 
 COPY src ./src
+COPY data ./data
 
 USER app
 

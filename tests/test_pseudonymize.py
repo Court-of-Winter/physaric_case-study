@@ -25,7 +25,7 @@ def test_person_tokens_are_stable_and_domain_separated():
     assert person != organization
     expected = hmac.new(
         b"k" * 32,
-        b"argus-metadata-v1\0person\0Alice@enron.com",
+        b"argus-metadata-v1\0person\0alice@enron.com",
         hashlib.sha256,
     ).hexdigest()
     assert person == f"person_{expected}"

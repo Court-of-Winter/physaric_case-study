@@ -135,7 +135,17 @@ def test_pipeline_writes_suppressed_pseudonymous_monthly_edges(tmp_path):
         assert private_value not in findings_text
         assert private_value not in repr(person_edges)
         assert private_value not in repr(organization_edges)
-    assert "attack_results" in privacy_report["networks"]["person"]
+    scenarios = privacy_report["scenarios"]
+    simulated_scenario = scenarios["simulated_public_information"]
+    assert simulated_scenario["status"] == "not_evaluated"
+    assert simulated_scenario["identity_reference"]["name_address_header_records"] > 0
+    assert (
+        simulated_scenario["public_organizational_chart"]["entity_count"] == 11
+    )
+    assert (
+        "attack_results"
+        in scenarios["public_mailbox_corpus_access"]["networks"]["person"]
+    )
     assert "peak_month" in json.loads(findings_text)
 
 

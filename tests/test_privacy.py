@@ -16,7 +16,7 @@ def test_structural_degree_counts_unique_neighbors_across_months():
     assert signatures["target"] == (0, 1, 0, 5)
 
 
-def test_privacy_assessment_reports_only_aggregate_match_and_utility():
+def test_privacy_assessment_documents_simulated_and_mailbox_access_scenarios():
     raw = {
         ("2001-01", "alice.private@example.com", "bob.private@example.com"): 5,
         ("2001-01", "bob.private@example.com", "alice.private@example.com"): 2,
@@ -36,8 +36,36 @@ def test_privacy_assessment_reports_only_aggregate_match_and_utility():
         min_edge_count=2,
     )
     serialized = json.dumps(report)
-    person = report["networks"]["person"]
+    scenarios = report["scenarios"]
+    simulated_scenario = scenarios["simulated_public_information"]
+    mailbox_scenario = scenarios["public_mailbox_corpus_access"]
+    person = mailbox_scenario["networks"]["person"]
 
+    assert simulated_scenario["status"] == "not_evaluated"
+    assert "does not have the mailboxes" in simulated_scenario["attacker_assumption"]
+    assert simulated_scenario["preparation_status"] == "inputs_available"
+    assert (
+        simulated_scenario["identity_reference"]["name_address_header_records"]
+        > 0
+    )
+    assert (
+        simulated_scenario["public_organizational_chart"]["entity_count"] == 11
+    )
+    assert (
+        simulated_scenario["public_organizational_chart"]["relationship_count"]
+        == 10
+    )
+    assert (
+        simulated_scenario["methods"]["display_name_only"]["status"]
+        == "not_evaluable"
+    )
+    assert (
+        simulated_scenario["methods"]["organizational_relationship_matching"][
+            "status"
+        ]
+        == "not_evaluable"
+    )
+    assert mailbox_scenario["status"] == "evaluated"
     assert person["attack_results"]["structural"]["before_mitigation"][
         "unique_match_rate"
     ] == 1

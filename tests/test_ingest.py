@@ -8,7 +8,9 @@ from enron_analysis.identity import (
 from enron_analysis.ingest import QualityCounts, iter_messages, parse_header_lines
 
 
-def test_body_and_unpermitted_headers_are_not_parsed(tmp_path):
+def test_body_and_unpermitted_headers_are_not_passed_to_parser(tmp_path, monkeypatch):
+    from enron_analysis import ingest
+
     message = tmp_path / "message"
     message.write_bytes(
         b"From: Alice <Alice@ENRON.com>\r\n"
@@ -22,13 +24,29 @@ def test_body_and_unpermitted_headers_are_not_parsed(tmp_path):
         b"From: body@example.com\r\n"
     )
 
+    original_parser = ingest.BytesHeaderParser
+    parser_inputs = []
+
+    class CapturingParser:
+        def __init__(self, *args, **kwargs):
+            self.parser = original_parser(*args, **kwargs)
+
+        def parsebytes(self, content, *args, **kwargs):
+            parser_inputs.append(content)
+            return self.parser.parsebytes(content, *args, **kwargs)
+
+    monkeypatch.setattr(ingest, "BytesHeaderParser", CapturingParser)
     record = next(iter_messages(tmp_path))
 
-    assert record.sender == "Alice@enron.com"
+    assert record.sender == "alice@enron.com"
     assert record.recipients == ("bob@enron.com",)
     assert record.sent_at == datetime(2001, 1, 1, 17, 0, tzinfo=timezone.utc)
     assert not hasattr(record, "message_id")
-    assert "Alice@enron.com" not in repr(record)
+    assert "alice@enron.com" not in repr(record)
+    assert len(parser_inputs) == 1
+    assert b"Subject:" not in parser_inputs[0]
+    assert b"X-Private:" not in parser_inputs[0]
+    assert b"body@example.com" not in parser_inputs[0]
 
 
 def test_reader_stops_at_header_separator(tmp_path, monkeypatch):
@@ -77,7 +95,7 @@ def test_folded_encoded_headers_and_bad_date_are_handled():
         ]
     )
 
-    assert record.sender == "Alice@example.com"
+    assert record.sender == "alice@example.com"
     assert record.recipients == ("bob@example.com",)
     assert record.sent_at is None
     assert malformed
@@ -140,16 +158,22 @@ def test_message_without_separator_is_discarded_without_header_parsing(
     assert quality.malformed_headers == 1
 
 
-def test_identity_resolution_is_exact_and_placeholders_are_unresolved():
-    assert normalize_address(" User@ENRON.COM ") == "User@enron.com"
-    assert resolve_person_identity("User@enron.com") == "User@enron.com"
+def test_identity_resolution_is_case_insensitive_and_placeholders_are_unresolved():
+    assert normalize_address(" User@ENRON.COM ") == "user@enron.com"
+    assert resolve_person_identity("User@enron.com") == "user@enron.com"
     assert resolve_person_identity("user@enron.com") == "user@enron.com"
     assert resolve_person_identity("no_address@enron.com") is None
     assert resolve_person_identity(
         "alias@enron.com",
         {"alias@ENRON.com": "person@enron.com"},
     ) == "person@enron.com"
-    assert organization_domain("person@ENRON.COM") == "enron.com"
+    assert organization_domain("Person@ENRON.COM") == "enron.com"
+
+
+def test_identity_resolution_merges_local_parts_that_differ_only_by_case():
+    assert resolve_person_identity("User@enron.com") == resolve_person_identity(
+        "user@enron.com"
+    )
 
 
 def test_alias_map_rejects_conflicting_normalized_aliases():
@@ -158,7 +182,7 @@ def test_alias_map_rejects_conflicting_normalized_aliases():
             "alias@enron.com",
             {
                 "alias@enron.com": "one@enron.com",
-                "alias@ENRON.COM": "two@enron.com",
+                "Alias@enron.com": "two@enron.com",
             },
         )
     except ValueError as exc:

@@ -5,7 +5,7 @@ _UNRESOLVED_ADDRESSES = frozenset({"no_address@enron.com"})
 
 
 def normalize_address(address: str) -> str | None:
-    """Normalize an address without merging case-distinct local parts."""
+    """Lowercase the local part and domain, treating addresses case-insensitively."""
     candidate = address.strip()
     if candidate.count("@") != 1 or any(char.isspace() for char in candidate):
         return None
@@ -21,7 +21,7 @@ def normalize_address(address: str) -> str | None:
     if not normalized_domain or normalized_domain.startswith("."):
         return None
 
-    return f"{local_part}@{normalized_domain}"
+    return f"{local_part.lower()}@{normalized_domain}"
 
 
 def normalize_alias_map(aliases: Mapping[str, str]) -> dict[str, str]:

@@ -41,11 +41,11 @@ def _write_edge_table(
 def _accumulate_message(
     message: HeaderMessage,
     pseudonymizer: Pseudonymizer,
-    identity_resolver: PersonIdentityResolver,
+    mailbox_identity_resolver: PersonIdentityResolver,
     person_edges: DailyEdgeCounts,
     organization_edges: DailyEdgeCounts,
-    raw_person_edges: EdgeCounts,
-    raw_organization_edges: EdgeCounts,
+    mailbox_person_edges: EdgeCounts,
+    mailbox_organization_edges: EdgeCounts,
     quality: QualityCounts,
 ) -> None:
     if message.sent_at is None:
@@ -63,10 +63,12 @@ def _accumulate_message(
     source_organization = (
         pseudonymizer.organization(message.sender) if message.sender else None
     )
-    raw_source_person = (
-        identity_resolver.resolve(message.sender) if message.sender else None
+    mailbox_source_person = (
+        mailbox_identity_resolver.resolve(message.sender)
+        if message.sender
+        else None
     )
-    raw_source_organization = (
+    mailbox_source_organization = (
         organization_domain(message.sender) if message.sender else None
     )
     if source_person is None:
@@ -77,23 +79,23 @@ def _accumulate_message(
     month = day[:7]
     person_targets: set[str] = set()
     organization_targets: set[str] = set()
-    raw_person_targets: set[str] = set()
-    raw_organization_targets: set[str] = set()
+    mailbox_person_targets: set[str] = set()
+    mailbox_organization_targets: set[str] = set()
     for address in message.recipients:
         person_target = pseudonymizer.person(address)
         if person_target is None:
             quality.unresolved_recipients += 1
         else:
             person_targets.add(person_target)
-        raw_person_target = identity_resolver.resolve(address)
-        if raw_person_target is not None:
-            raw_person_targets.add(raw_person_target)
+        mailbox_person_target = mailbox_identity_resolver.resolve(address)
+        if mailbox_person_target is not None:
+            mailbox_person_targets.add(mailbox_person_target)
         organization_target = pseudonymizer.organization(address)
         if organization_target is not None:
             organization_targets.add(organization_target)
-        raw_organization_target = organization_domain(address)
-        if raw_organization_target is not None:
-            raw_organization_targets.add(raw_organization_target)
+        mailbox_organization_target = organization_domain(address)
+        if mailbox_organization_target is not None:
+            mailbox_organization_targets.add(mailbox_organization_target)
 
     if source_organization is not None:
         for target in organization_targets:
@@ -101,11 +103,11 @@ def _accumulate_message(
                 quality.organization_self_loops_skipped += 1
             else:
                 organization_edges[(day, source_organization, target)] += 1
-    if raw_source_organization is not None:
-        for target in raw_organization_targets:
-            if raw_source_organization != target:
-                raw_organization_edges[
-                    (month, raw_source_organization, target)
+    if mailbox_source_organization is not None:
+        for target in mailbox_organization_targets:
+            if mailbox_source_organization != target:
+                mailbox_organization_edges[
+                    (month, mailbox_source_organization, target)
                 ] += 1
 
     for target in person_targets:
@@ -113,10 +115,10 @@ def _accumulate_message(
             quality.person_self_loops_skipped += 1
         else:
             person_edges[(day, source_person, target)] += 1
-    if raw_source_person is not None:
-        for target in raw_person_targets:
-            if raw_source_person != target:
-                raw_person_edges[(month, raw_source_person, target)] += 1
+    if mailbox_source_person is not None:
+        for target in mailbox_person_targets:
+            if mailbox_source_person != target:
+                mailbox_person_edges[(month, mailbox_source_person, target)] += 1
 
 
 def _monthly_edges(daily_edges: Mapping[tuple[str, str, str], int]) -> EdgeCounts:
@@ -152,22 +154,22 @@ def run_pipeline(
     key = load_hmac_key(key_file)
     aliases = load_alias_map(alias_map_file) if alias_map_file else None
     pseudonymizer = Pseudonymizer(key, aliases)
-    attacker_identity_resolver = PersonIdentityResolver()
+    mailbox_identity_resolver = PersonIdentityResolver()
     quality = QualityCounts()
     person_daily_edges: DailyEdgeCounts = Counter()
     organization_daily_edges: DailyEdgeCounts = Counter()
-    raw_person_edges: EdgeCounts = Counter()
-    raw_organization_edges: EdgeCounts = Counter()
+    mailbox_person_edges: EdgeCounts = Counter()
+    mailbox_organization_edges: EdgeCounts = Counter()
 
     for message in iter_messages(data_dir, quality):
         _accumulate_message(
             message,
             pseudonymizer,
-            attacker_identity_resolver,
+            mailbox_identity_resolver,
             person_daily_edges,
             organization_daily_edges,
-            raw_person_edges,
-            raw_organization_edges,
+            mailbox_person_edges,
+            mailbox_organization_edges,
             quality,
         )
 
@@ -198,8 +200,8 @@ def run_pipeline(
     )
     privacy_report = assess_reidentification(
         {
-            "person": raw_person_edges,
-            "organization_proxy": raw_organization_edges,
+            "person": mailbox_person_edges,
+            "organization_proxy": mailbox_organization_edges,
         },
         {
             "person": person_edges,

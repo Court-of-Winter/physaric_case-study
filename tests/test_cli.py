@@ -133,4 +133,6 @@ def test_cli_edge_export_flag_writes_sensitive_tables(tmp_path, monkeypatch, cap
     assert main() == 0
     assert (output_dir / "person_edges_2001.csv").is_file()
     assert (output_dir / "organization_edges_2001.csv").is_file()
-    assert "re-identifiable graph structure" in capsys.readouterr().err
+    warning = capsys.readouterr().err
+    assert "node-level edge exports are sensitive" in warning
+    assert "does not evaluate the customer" in warning

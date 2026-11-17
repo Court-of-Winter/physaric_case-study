@@ -1,0 +1,37 @@
+{
+  "source": {
+    "title": "Report on EnronOnline",
+    "publisher": "Federal Energy Regulatory Commission",
+    "report_date": "2001-08-16",
+    "figure": "Figure 1, Organization Chart of Enron Corp",
+    "page": 3,
+    "url": "https://web.archive.org/web/20100527135242/https://www.ferc.gov/industries/electric/indus-act/wec/enron/rpt-enron-online.pdf"
+  },
+  "data_origin": "public_org_chart",
+  "limitation": "This chart lists corporate units and subsidiaries, not named employees or their email addresses.",
+  "entities": [
+    "Enron Corp",
+    "Enron Networks",
+    "Enron North America",
+    "Enron Energy Services",
+    "Enron Broadband",
+    "Enron Transportation Services",
+    "EnronOnline",
+    "Enron Power Marketing",
+    "Enron Gas Marketing",
+    "Enron Generation",
+    "Enron Pipelines"
+  ],
+  "relationships": [
+    ["Enron Corp", "Enron Networks"],
+    ["Enron Corp", "Enron North America"],
+    ["Enron Corp", "Enron Energy Services"],
+    ["Enron Corp", "Enron Broadband"],
+    ["Enron Corp", "Enron Transportation Services"],
+    ["Enron Networks", "EnronOnline"],
+    ["Enron North America", "Enron Power Marketing"],
+    ["Enron North America", "Enron Gas Marketing"],
+    ["Enron North America", "Enron Generation"],
+    ["Enron Transportation Services", "Enron Pipelines"]
+  ]
+}

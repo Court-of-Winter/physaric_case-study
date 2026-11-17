@@ -1,5 +1,9 @@
+import csv
+import json
 from collections import Counter, defaultdict
 from collections.abc import Mapping
+from pathlib import Path
+from typing import Any
 
 from .graph_analysis import graph_metrics
 
@@ -141,49 +145,151 @@ def _attack_summaries(
     }
 
 
+def _simulated_public_information_inputs() -> dict[str, Any]:
+    data_dir = Path(__file__).resolve().parents[2] / "data"
+    identity_path = data_dir / "simulated_identity_names.csv"
+    org_chart_path = data_dir / "simulated_public_org_chart.json"
+
+    with identity_path.open(encoding="utf-8", newline="") as source:
+        reader = csv.DictReader(source)
+        expected_fields = {
+            "email_address",
+            "display_name",
+            "header",
+            "observations",
+            "data_origin",
+        }
+        if set(reader.fieldnames or ()) != expected_fields:
+            raise ValueError("simulated identity data has an unexpected schema")
+        identity_rows = list(reader)
+    if any(row["data_origin"] != "email_corpus_header" for row in identity_rows):
+        raise ValueError("simulated identity data has an unexpected origin")
+
+    with org_chart_path.open(encoding="utf-8") as source:
+        org_chart = json.load(source)
+    entities = org_chart["entities"]
+    relationships = org_chart["relationships"]
+    if (
+        not isinstance(entities, list)
+        or not all(isinstance(entity, str) for entity in entities)
+        or not isinstance(relationships, list)
+        or not all(
+            isinstance(edge, list)
+            and len(edge) == 2
+            and all(isinstance(entity, str) for entity in edge)
+            and set(edge) <= set(entities)
+            for edge in relationships
+        )
+    ):
+        raise ValueError("simulated organization chart has an unexpected schema")
+
+    return {
+        "preparation_status": "inputs_available",
+        "identity_reference": {
+            "file": "data/simulated_identity_names.csv",
+            "origin": (
+                "Display names and addresses extracted from the email corpus; "
+                "evaluator reference data, not independent public attacker knowledge."
+            ),
+            "name_address_header_records": len(identity_rows),
+            "distinct_addresses": len(
+                {row["email_address"] for row in identity_rows}
+            ),
+            "distinct_display_names": len(
+                {row["display_name"] for row in identity_rows}
+            ),
+        },
+        "public_organizational_chart": {
+            "file": "data/simulated_public_org_chart.json",
+            **org_chart,
+            "entity_count": len(entities),
+            "relationship_count": len(relationships),
+        },
+        "methods": {
+            "display_name_only": {
+                "status": "not_evaluable",
+                "reason": (
+                    "The identity reference is derived from the mail corpus "
+                    "and released outputs contain no display names to match."
+                ),
+            },
+            "organizational_relationship_matching": {
+                "status": "not_evaluable",
+                "reason": (
+                    "The cited chart describes corporate units, not named "
+                    "employees, and provides no mapping from people or email "
+                    "addresses to those units."
+                ),
+            },
+            "mailbox_graph_signature_matching": {
+                "status": "evaluated_separately",
+                "scenario": "public_mailbox_corpus_access",
+            },
+        },
+    }
+
+
 def assess_reidentification(
-    raw_networks: Mapping[str, MonthlyEdges],
+    mailbox_networks: Mapping[str, MonthlyEdges],
     pseudonymized_networks: Mapping[str, MonthlyEdges],
     min_edge_count: int,
 ) -> dict[str, object]:
-    """Test unique signature matching without persisting identifiers or matches."""
+    """Report the customer threat model and a separate mailbox-access test."""
     if min_edge_count < 1:
         raise ValueError("minimum edge count must be at least 1")
-    results: dict[str, object] = {
-        "attacker_assumption": (
-            "Attacker has the original corpus and knows the monthly release "
-            "and edge-suppression threshold, but not the HMAC key or alias map."
-        ),
-        "attack_method": (
-            "Unique exact matches of annual in/out degree and strength "
-            "profiles, and 12-month profiles of those features."
-        ),
-        "mitigation": (
-            "Monthly aggregation with suppression of monthly dyads below "
-            "the configured minimum edge count."
-        ),
-        "min_edge_count": min_edge_count,
-        "networks": {},
+    results: dict[str, Any] = {
+        "scenarios": {
+            "simulated_public_information": {
+                "status": "not_evaluated",
+                "attacker_assumption": (
+                    "Simulated attacker knows the corporate-unit relationships "
+                    "shown in the cited FERC report, but does not have the "
+                    "mailboxes, HMAC key, or alias map. Corpus-derived names "
+                    "are retained only as evaluator identity references."
+                ),
+                **_simulated_public_information_inputs(),
+            },
+            "public_mailbox_corpus_access": {
+                "status": "evaluated",
+                "attacker_assumption": (
+                    "Attacker has the original public mailbox corpus and knows "
+                    "the monthly release and edge-suppression threshold, but "
+                    "not the HMAC key or alias map."
+                ),
+                "attack_method": (
+                    "Unique exact matches of annual in/out degree and strength "
+                    "profiles, and 12-month profiles of those features."
+                ),
+                "mitigation": (
+                    "Monthly aggregation with suppression of monthly dyads "
+                    "below the configured minimum edge count."
+                ),
+                "min_edge_count": min_edge_count,
+                "networks": {},
+            },
+        }
     }
 
-    network_results = results["networks"]
+    network_results = results["scenarios"]["public_mailbox_corpus_access"][
+        "networks"
+    ]
     for network_name in sorted(pseudonymized_networks):
-        raw_edges = raw_networks.get(network_name, {})
+        mailbox_edges = mailbox_networks.get(network_name, {})
         pseudonymized_edges = pseudonymized_networks[network_name]
-        raw_released = _filtered_edges(raw_edges, min_edge_count)
+        mailbox_released = _filtered_edges(mailbox_edges, min_edge_count)
         pseudonymized_released = _filtered_edges(
             pseudonymized_edges, min_edge_count
         )
         threshold_sensitivity = {}
         thresholds = sorted({min_edge_count, *_THRESHOLDS_TO_TEST})
         for threshold in thresholds:
-            threshold_raw = _filtered_edges(raw_edges, threshold)
+            threshold_mailbox = _filtered_edges(mailbox_edges, threshold)
             threshold_pseudonymized = _filtered_edges(
                 pseudonymized_edges, threshold
             )
             threshold_sensitivity[str(threshold)] = {
                 "attack_results": _attack_summaries(
-                    threshold_raw,
+                    threshold_mailbox,
                     threshold_pseudonymized,
                 ),
                 "utility": _utility_summary(
@@ -196,11 +302,13 @@ def assess_reidentification(
                 signature_type: {
                     "before_mitigation": summary,
                     "after_mitigation": _unique_match_summary(
-                        raw_released, pseudonymized_released, signature_type
+                        mailbox_released,
+                        pseudonymized_released,
+                        signature_type,
                     ),
                 }
                 for signature_type, summary in _attack_summaries(
-                    raw_edges, pseudonymized_edges
+                    mailbox_edges, pseudonymized_edges
                 ).items()
             },
             "utility": _utility_summary(

@@ -42,8 +42,9 @@ def build_parser() -> argparse.ArgumentParser:
         "--export-edges",
         action="store_true",
         help=(
-            "Write pseudonymized node-level edge CSVs (sensitive; structural "
-            "re-identification risk is measured in the privacy report)."
+            "Write sensitive pseudonymized node-level edge CSVs. The privacy "
+            "report's mailbox-corpus test does not evaluate the customer "
+            "public-information threat model."
         ),
     )
     return parser
@@ -56,8 +57,9 @@ def main() -> int:
         parser.error("--min-edge-count must be at least 1")
     if args.export_edges:
         print(
-            "WARNING: exporting node-level edges exposes re-identifiable graph "
-            "structure; see privacy_assessment.json.",
+            "WARNING: node-level edge exports are sensitive. The mailbox-corpus "
+            "test in privacy_assessment.json does not evaluate the customer "
+            "public-information threat model.",
             file=sys.stderr,
         )
     try:
