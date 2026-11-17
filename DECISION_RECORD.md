@@ -11,15 +11,17 @@ and suppresses monthly dyads below a configurable threshold (default \(k=5\)).
 Aggregate reports are the default; exporting node-level edges requires an
 explicit opt-in because those edges remain sensitive even when pseudonymized.
 
-I also kept two risk evaluations separate. The mailbox-corpus comparison
-matches structural and temporal signatures using the original mailbox graph.
-Its raw identity edges exist in memory for the calculation, but are not
-pseudonymized or written to the reports. This is a stronger attacker
-assumption than the customer described. For the simulated public-information
-case, I included names extracted from the email corpus and the FERC corporate
-org chart. The names are not independent public data, and the chart does not
-name employees or connect people to departments. So the pipeline records the
-fixture and its provenance, but marks person-level matching as not evaluated.
+I kept the two risk scenarios separate because they answer different
+questions. The mailbox-corpus comparison matches structural and temporal
+signatures using the original mailbox graph. Its raw identity edges exist in
+memory for the calculation, but are not pseudonymized or written to reports.
+This tests a stronger attacker than the customer described: one who has the
+mailbox corpus. The public-information exercise did not answer whether the
+customer's release is secure. I assembled a counterfactual fixture of names
+extracted from the email corpus and the FERC corporate org chart, but did not
+link people to pseudonyms or to positions in the released graph. The fixture
+and chart therefore document possible inputs, not an attack result or a
+security assessment. That scenario remains unevaluated.
 
 ## Why I made these choices
 
@@ -57,10 +59,14 @@ on the components most important to privacy and went through the included
 tests. Modifications are therefore limited to adding some assertions and the above mentioned case-insentive treatment of the local parts of email addresses.  
 With more time I would have preferred to write some tests myself, especially for edge cases.
 
-I also lack the experience to judge how press coverage could help an attacker,
-so I did not assess that source systematically. Time did not allow me to build
-a realistic attacker workflow either. The public-information exercise is
-therefore only a documented simulation fixture based on names from the email
-corpus and the FERC org chart; it produces no person-level re-identification
-result. The mailbox-corpus signature results answer a different, stronger
-attacker scenario and should not be used as a substitute.
+The public-information simulation did not provide evidence about the actual
+security of the release under the customer's threat model. In part, I lack
+knowledge of how press coverage could help an attacker, so I did not know
+which sources or person-to-department claims to investigate. In part, I ran
+out of time before collecting and verifying that evidence or building the
+attacker workflow. The names in the fixture came from the email corpus, while
+the FERC chart identifies corporate units but not employees; treating those
+names as public did not create an independent link to the pseudonymous graph.
+As a result, the simulation ended at input preparation and produced no
+measurable attack result. The mailbox-corpus signature results are evidence
+only for their stronger mailbox-access scenario and cannot fill that gap.
