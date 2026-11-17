@@ -1,4 +1,5 @@
 import csv
+import os
 from collections import Counter
 from collections.abc import Mapping
 from pathlib import Path
@@ -27,7 +28,13 @@ def _write_edge_table(
 ) -> int:
     path.parent.mkdir(parents=True, exist_ok=True)
     suppressed = 0
-    with path.open("w", encoding="utf-8", newline="") as output:
+    descriptor = os.open(
+        path,
+        os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
+        0o600,
+    )
+    os.fchmod(descriptor, 0o600)
+    with os.fdopen(descriptor, "w", encoding="utf-8", newline="") as output:
         writer = csv.writer(output)
         writer.writerow(("month", "source", "target", "weight"))
         for (month, source, target), weight in sorted(edges.items()):

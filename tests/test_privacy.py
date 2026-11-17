@@ -56,11 +56,11 @@ def test_privacy_assessment_documents_simulated_and_mailbox_access_scenarios():
         == 10
     )
     assert (
-        simulated_scenario["methods"]["display_name_only"]["status"]
+        simulated_scenario["methods"]["name_and_address_linkage"]["status"]
         == "not_evaluable"
     )
     assert (
-        simulated_scenario["methods"]["organizational_relationship_matching"][
+        simulated_scenario["methods"]["department_to_graph_matching"][
             "status"
         ]
         == "not_evaluable"

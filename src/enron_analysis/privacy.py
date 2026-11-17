@@ -206,19 +206,21 @@ def _simulated_public_information_inputs() -> dict[str, Any]:
             "relationship_count": len(relationships),
         },
         "methods": {
-            "display_name_only": {
+            "name_and_address_linkage": {
                 "status": "not_evaluable",
                 "reason": (
-                    "The identity reference is derived from the mail corpus "
-                    "and released outputs contain no display names to match."
+                    "Even treating the corpus-derived names and addresses as "
+                    "public attacker knowledge, the pseudonymized edge export "
+                    "contains no address-to-pseudonym mapping."
                 ),
             },
-            "organizational_relationship_matching": {
+            "department_to_graph_matching": {
                 "status": "not_evaluable",
                 "reason": (
-                    "The cited chart describes corporate units, not named "
-                    "employees, and provides no mapping from people or email "
-                    "addresses to those units."
+                    "The FERC chart describes corporate units but not their "
+                    "employees. No independent press, LinkedIn, or similar "
+                    "source was collected to map the assumed public names to "
+                    "departments and then to graph communities."
                 ),
             },
             "mailbox_graph_signature_matching": {
@@ -242,10 +244,12 @@ def assess_reidentification(
             "simulated_public_information": {
                 "status": "not_evaluated",
                 "attacker_assumption": (
-                    "Simulated attacker knows the corporate-unit relationships "
-                    "shown in the cited FERC report, but does not have the "
-                    "mailboxes, HMAC key, or alias map. Corpus-derived names "
-                    "are retained only as evaluator identity references."
+                    "Counterfactually assume an attacker knows the names and "
+                    "email-address associations in the identity fixture, as if "
+                    "learned from public sources, and the corporate-unit "
+                    "relationships in the cited FERC report. The attacker does "
+                    "not have the mailboxes, HMAC key, or alias map. The fixture "
+                    "is actually derived from the email corpus."
                 ),
                 **_simulated_public_information_inputs(),
             },

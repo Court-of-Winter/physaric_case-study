@@ -6,14 +6,16 @@ repository version. The corpus is a modified local copy with some messages
 redacted and some addresses inferred from recipient names; it is not the
 complete historical record.
 
-The run was started with:
+The run was started with node-level edge export enabled:
 
 ```sh
-bash ./run.sh --with-tests
+EXPORT_EDGES=1 bash ./run.sh --with-tests
 ```
 
 The Docker test suite passed (**34 tests**), then the corpus analysis completed.
-The default run did not export node-level edge CSVs.
+This intentionally produced pseudonymized node-level edges in the ignored
+`outputs/` directory for examination. Treat these files as sensitive; they
+were not added to Git.
 
 ## Ingestion
 
@@ -53,10 +55,23 @@ across days.
 
 ## Simulated public-information scenario
 
-The pipeline loaded and reported the simulation inputs, but **did not produce
-a person-level re-identification score**. Results are marked
-`not_evaluated` in `outputs/privacy_assessment.json`; reporting that status is
-the outcome of this run, not a zero-risk result.
+For this counterfactual scenario, I treated the fixture's names and
+name-to-email associations as if an attacker had learned them from public
+sources, and assumed the attacker also knew the FERC org chart and could see
+the exported pseudonymized edge tables. The CSV's actual source remains the
+email corpus; this assumption does not make the names independently public.
+The attacker is not given the raw mailboxes, HMAC key, or alias map.
+
+The plausible attack would use independently known department or role
+affiliations to identify graph communities or node patterns consistent with
+those affiliations, then try to link those candidates to known people. I did
+not collect press, LinkedIn, or similar sources to establish those
+person-to-department links. The FERC chart lists corporate units but not
+employees or staff assignments. Therefore, **no person-level re-identification
+score was produced**. Both name/address linkage to pseudonyms and
+department-to-graph matching are `not_evaluable` in
+`outputs/privacy_assessment.json`. This is a limitation of available attacker
+evidence, not a finding of zero risk.
 
 | Input or method | Result | Interpretation |
 |---|---:|---|
@@ -65,17 +80,18 @@ the outcome of this run, not a zero-risk result.
 | Distinct display names in the fixture | 115 | Name variants and errors are possible |
 | FERC org-chart entities | 11 | Corporate units, not named people |
 | FERC org-chart relationships | 10 | Figure 1, page 3 of the cited report |
-| Display-name-only matching | Not evaluable | The names come from the corpus, while released reports do not contain display names |
-| Matching people to org-chart relationships | Not evaluable | The chart contains no employees or person-to-unit mapping |
+| Name/address-to-pseudonym linkage | Not evaluable | The edge export has no address-to-pseudonym mapping |
+| Department-to-graph matching | Not evaluable | No independently sourced person-to-department facts were collected |
 
 The org chart was transcribed from the Federal Energy Regulatory Commission's
 *Report on EnronOnline*, dated August 16, 2001, Figure 1, “Organization Chart
 of Enron Corp,” page 3:
 [archived FERC report](https://web.archive.org/web/20100527135242/https://www.ferc.gov/industries/electric/indus-act/wec/enron/rpt-enron-online.pdf).
-The name/address fixture is explicitly corpus-derived and should not be
-presented as information an independent public attacker would necessarily
-know. These two inputs support a reproducible simulation fixture, but do not
-currently suffice to test the customer public-information threat model.
+The name/address fixture is explicitly corpus-derived. Treating it as public
+attacker knowledge is a deliberate simulation assumption, not a claim about
+what an independent attacker could find. The names and org chart alone do not
+provide a mapping to the released pseudonyms. Testing that linkage requires
+external role/department evidence, which was not researched for this run.
 
 ## Separate public-mailbox-corpus comparison
 
@@ -112,8 +128,8 @@ case-sensitive, so distinct mailboxes could be conflated. Pseudonyms and
 network results depend on this normalization choice.
 
 Pseudonymization is not anonymization. Graph structure and timing may still
-identify people. Aggregate reports are the default; node-level edge exports
-contain sensitive pseudonymous links and were not generated in this run.
+identify people. Aggregate reports are the default; the node-level edge
+exports from this run contain sensitive pseudonymous links.
 
 ## Generated reports
 
@@ -125,7 +141,11 @@ The pipeline wrote these files to the Git-ignored `outputs/` directory:
 | `network_metrics_2001.csv` | Monthly network metrics and resampling ranges |
 | `findings.json` | Peak activity finding and adjacent-month comparisons |
 | `privacy_assessment.json` | Simulated public-information inputs and evaluation status, plus the separate mailbox-corpus comparison |
+| `person_edges_2001.csv` | 87,527 sensitive pseudonymous monthly person-edge rows |
+| `organization_edges_2001.csv` | 7,885 sensitive pseudonymous monthly organization-proxy edge rows |
 
 Results require the same code revision, corpus, key, alias map, and settings to
 reproduce. Python and package versions are pinned; the Docker base image digest
-and cross-platform bit-for-bit reproducibility are not.
+and cross-platform bit-for-bit reproducibility are not. Edge CSVs are ignored
+by Git, created with owner-only permissions, and should be handled as sensitive
+data.

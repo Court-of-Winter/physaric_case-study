@@ -116,6 +116,8 @@ def test_pipeline_writes_suppressed_pseudonymous_monthly_edges(tmp_path):
     assert organization_edges[0]["target"] == pseudonymizer.organization(
         "bob@other.com"
     )
+    assert (output / "person_edges_2001.csv").stat().st_mode & 0o777 == 0o600
+    assert (output / "organization_edges_2001.csv").stat().st_mode & 0o777 == 0o600
     assert quality.messages_in_2001 == 4
     assert quality.messages_outside_2001 == 1
     assert quality.unresolved_recipients == 1
@@ -138,6 +140,7 @@ def test_pipeline_writes_suppressed_pseudonymous_monthly_edges(tmp_path):
     scenarios = privacy_report["scenarios"]
     simulated_scenario = scenarios["simulated_public_information"]
     assert simulated_scenario["status"] == "not_evaluated"
+    assert "Counterfactually assume" in simulated_scenario["attacker_assumption"]
     assert simulated_scenario["identity_reference"]["name_address_header_records"] > 0
     assert (
         simulated_scenario["public_organizational_chart"]["entity_count"] == 11
